@@ -1,6 +1,6 @@
 {
   "name": "@bastion-multisig/mango-client",
-  "version": "3.6.12",
+  "version": "3.6.13",
   "description": "Client to interact with the Mango program on Solana",
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
@@ -63,7 +63,6 @@
     "cross-env": "^7.0.2",
     "eslint": "^7.28.0",
     "eslint-config-prettier": "^7.2.0",
-    "mango_risk_check": "^1.2.1",
     "mocha": "9",
     "prettier": "^2.0.5",
     "ts-node": "^9.1.1",
