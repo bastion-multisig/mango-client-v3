@@ -1325,7 +1325,7 @@ export class MangoClient {
       wrappedSolAccount?.publicKey ?? tokenAcc,
       nativeQuantity,
     );
-    transactions.push({ transaction: new Transaction().add(instruction)});
+    transactions.push({ transaction: new Transaction().add(instruction) });
 
     if (info) {
       const addAccountNameinstruction = makeAddMangoAccountInfoInstruction(
@@ -1335,25 +1335,24 @@ export class MangoClient {
         owner.publicKey,
         info,
       );
-      transactions.push({ transaction: new Transaction().add(addAccountNameinstruction)});
+      transactions.push({
+        transaction: new Transaction().add(addAccountNameinstruction),
+      });
     }
 
     if (wrappedSolAccount) {
-      transactions.push({ transaction: 
-        new Transaction().add(
+      transactions.push({
+        transaction: new Transaction().add(
           closeAccount({
             source: wrappedSolAccount.publicKey,
             destination: owner.publicKey,
             owner: owner.publicKey,
           }),
         ),
-        });
+      });
     }
 
-    const txid = await this.sendTransactions(
-      transactions,
-      owner,
-    );
+    const txid = await this.sendTransactions(transactions, owner);
 
     return [mangoAccountPk.toString(), txid[txid.length - 1]];
   }
@@ -1469,7 +1468,8 @@ export class MangoClient {
       return;
     }
 
-    const transactions: {transaction: Transaction, signers?:Keypair[] }[] = [];
+    const transactions: { transaction: Transaction; signers?: Keypair[] }[] =
+      [];
     const tokenIndex = mangoGroup.getRootBankIndex(rootBank);
     const tokenMint = mangoGroup.tokens[tokenIndex].mint;
 
@@ -1507,12 +1507,12 @@ export class MangoClient {
         }),
       );
 
-      transactions.push({transaction: wsolTx, signers: [wrappedSolAccount]});
+      transactions.push({ transaction: wsolTx, signers: [wrappedSolAccount] });
     } else {
       const tokenAccExists = await this.connection.getAccountInfo(tokenAcc);
       if (!tokenAccExists) {
-        transactions.push({transaction:
-          new Transaction().add(
+        transactions.push({
+          transaction: new Transaction().add(
             Token.createAssociatedTokenAccountInstruction(
               ASSOCIATED_TOKEN_PROGRAM_ID,
               TOKEN_PROGRAM_ID,
@@ -1522,7 +1522,7 @@ export class MangoClient {
               owner.publicKey,
             ),
           ),
-            });
+        });
       }
     }
 
@@ -1546,24 +1546,21 @@ export class MangoClient {
       nativeQuantity,
       allowBorrow,
     );
-    transactions.push({transaction: new Transaction().add(instruction)});
+    transactions.push({ transaction: new Transaction().add(instruction) });
 
     if (wrappedSolAccount) {
-      transactions.push({transaction: 
-        new Transaction().add(
+      transactions.push({
+        transaction: new Transaction().add(
           closeAccount({
             source: wrappedSolAccount.publicKey,
             destination: owner.publicKey,
             owner: owner.publicKey,
           }),
         ),
-        });
+      });
     }
 
-    const txid = await this.sendTransactions(
-      transactions,
-      owner,
-    );
+    const txid = await this.sendTransactions(transactions, owner);
     return txid[txid.length - 1];
   }
 
