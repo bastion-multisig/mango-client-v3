@@ -208,11 +208,13 @@ export class MangoClient {
     timeout: number | null = this.timeout,
     confirmLevel: TransactionConfirmationStatus = 'processed',
   ): Promise<TransactionSignature[]> {
-    const recentBlockhash = await this.getCurrentBlockhash();
+    const { blockhash, lastValidBlockHeight } =
+      await this.getCurrentBlockhash();
 
     for (const { transaction, signers } of transactionAndSigners) {
       if (signers?.length) {
-        (transaction as any).recentBlockhash = recentBlockhash;
+        (transaction as any).recentBlockhash = blockhash;
+        (transaction as any).lastValidBlockHeight = lastValidBlockHeight;
         (transaction as any).feePayer = payer.publicKey;
         transaction.partialSign(...signers);
       }
@@ -304,7 +306,7 @@ export class MangoClient {
             txid,
             timeout,
             confirmLevel,
-            recentBlockhash,
+            { blockhash, lastValidBlockHeight },
           );
         } catch (err: any) {
           if (err.timeout) {
@@ -4386,7 +4388,8 @@ export class MangoClient {
     if (!owner.publicKey) {
       return;
     }
-    const transaction = new Transaction();
+    const transactions: { transaction: Transaction; signers?: Keypair[] }[] =
+      [];
 
     const instruction = makeCancelSpotOrderInstruction(
       this.programId,
@@ -4402,7 +4405,7 @@ export class MangoClient {
       spotMarket['_decoded'].eventQueue,
       order,
     );
-    transaction.add(instruction);
+    transactions.push({ transaction: new Transaction().add(instruction) });
 
     const dexSigner = await PublicKey.createProgramAddress(
       [
@@ -4444,9 +4447,9 @@ export class MangoClient {
       quoteNodeBank.vault,
       dexSigner,
     );
-    transaction.add(settleFundsInstruction);
-
-    const additionalSigners: Keypair[] = [];
+    transactions.push({
+      transaction: new Transaction().add(settleFundsInstruction),
+    });
 
     const limitPrice = spotMarket.priceNumberToLots(price);
     const maxBaseQuantity = spotMarket.baseSizeNumberToLots(size);
@@ -4523,7 +4526,10 @@ export class MangoClient {
           initTx.add(accInstr.instruction);
           initTx.add(initOpenOrders);
 
-          await this.sendTransaction(initTx, owner, [accInstr.account]);
+          transactions.push({
+            transaction: initTx,
+            signers: [accInstr.account],
+          });
 
           pubkey = accInstr.account.publicKey;
         } else {
@@ -4568,7 +4574,9 @@ export class MangoClient {
       orderType,
       order.clientId,
     );
-    transaction.add(placeOrderInstruction);
+    transactions.push({
+      transaction: new Transaction().add(placeOrderInstruction),
+    });
 
     if (spotMarketIndex > 0) {
       console.log(
@@ -4577,11 +4585,7 @@ export class MangoClient {
         openOrdersKeys[spotMarketIndex - 1].pubkey.toBase58(),
       );
     }
-    const txid = await this.sendTransaction(
-      transaction,
-      owner,
-      additionalSigners,
-    );
+    const txid = await this.sendTransactions(transactions, owner);
 
     // update MangoAccount to have new OpenOrders pubkey
     mangoAccount.spotOpenOrders[spotMarketIndex] =
@@ -4593,7 +4597,7 @@ export class MangoClient {
       openOrdersKeys[spotMarketIndex].pubkey.toBase58(),
     );
 
-    return txid;
+    return txid[txid.length - 1];
   }
 
   async modifyPerpOrder(
@@ -4616,8 +4620,8 @@ export class MangoClient {
     if (!owner.publicKey) {
       return;
     }
-    const transaction = new Transaction();
-    const additionalSigners: Keypair[] = [];
+    const transactions: { transaction: Transaction; signers?: Keypair[] }[] =
+      [];
 
     const cancelInstruction = makeCancelPerpOrderInstruction(
       this.programId,
@@ -4631,7 +4635,9 @@ export class MangoClient {
       invalidIdOk,
     );
 
-    transaction.add(cancelInstruction);
+    transactions.push({
+      transaction: new Transaction().add(cancelInstruction),
+    });
 
     const [nativePrice, nativeQuantity] = perpMarket.uiToNativePriceQuantity(
       price,
@@ -4659,7 +4665,7 @@ export class MangoClient {
       false,
       referrerMangoAccountPk,
     );
-    transaction.add(placeInstruction);
+    transactions.push({ transaction: new Transaction().add(placeInstruction) });
 
     if (bookSideInfo) {
       const bookSide = bookSideInfo.data
@@ -4690,10 +4696,13 @@ export class MangoClient {
           .sort(),
         new BN(4),
       );
-      transaction.add(consumeInstruction);
+      transactions.push({
+        transaction: new Transaction().add(consumeInstruction),
+      });
     }
 
-    return await this.sendTransaction(transaction, owner, additionalSigners);
+    let txid = await this.sendTransactions(transactions, owner);
+    return txid[txid.length - 1];
   }
 
   async addPerpTriggerOrder(
